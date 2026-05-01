@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#05060d" />
+<title>The Mandala Map</title>
+<style>
+  :root {
+    --bg-deep: #05060d;
+    --bg-mid: #0a0d1e;
+    --bg-glow: #14183a;
+    --text-primary: #e8e4d6;
+    --text-muted: #8a8674;
+    --text-faint: #4a4736;
+    --accent-line: rgba(232, 228, 214, 0.18);
+    --panel-bg: rgba(10, 13, 30, 0.78);
+    --panel-border: rgba(232, 228, 214, 0.12);
+    --pole-color: #f4c95d;
+    --mirror-color: #6ec3d4;
+    --equator-color: #c97ad6;
+    color-scheme: dark;
+  }
+
+- { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+height: 100%;
+overflow: hidden;
+background-color: #05060d;
+background-image: radial-gradient(ellipse at center, #14183a 0%, #0a0d1e 40%, #05060d 100%);
+font-family: ‘Cormorant Garamond’, ‘Iowan Old Style’, ‘Palatino Linotype’, Georgia, serif;
+color: #e8e4d6;
+-webkit-text-fill-color: #e8e4d6;
+}
+
+body::before {
+content: ‘’;
+position: fixed;
+top: 0;
+left: 0;
+right: 0;
+bottom: 0;
+background-color: #05060d;
+background-image: radial-gradient(ellipse at center, #14183a 0%, #0a0d1e 40%, #05060d 100%);
+z-index: -2;
+pointer-events: none;
+}
+
+#stars {
+position: fixed;
+top: 0;
+left: 0;
+right: 0;
+bottom: 0;
+width: 100%;
+height: 100%;
+pointer-events: none;
+z-index: -1;
+background-color: transparent;
+}
+
+#canvas-wrap {
+position: fixed;
+top: 0;
+left: 0;
+right: 380px;
+bottom: 0;
+z-index: 1;
+background-color: transparent;
+}
+
+canvas { display: block; cursor: grab; }
+canvas:active { cursor: grabbing; }
+
+/* Title overlay */
+.title-block {
+position: fixed;
+top: 32px; left: 40px;
+z-index: 5;
+pointer-events: none;
+max-width: 420px;
+}
+.title-block h1 {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 38px;
+font-weight: 500;
+font-style: normal;
+letter-spacing: 0.005em;
+color: #e8e4d6;
+-webkit-text-fill-color: #e8e4d6;
+line-height: 1.05;
+}
+.title-block .subtitle {
+margin-top: 6px;
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 20px;
+font-style: italic;
+color: #b8b4a4;
+-webkit-text-fill-color: #b8b4a4;
+line-height: 1.3;
+letter-spacing: 0.01em;
+}
+.title-block .instruction {
+margin-top: 20px;
+font-family: ‘IBM Plex Mono’, monospace;
+font-size: 12px;
+letter-spacing: 0.16em;
+text-transform: uppercase;
+color: #e8e4d6;
+-webkit-text-fill-color: #e8e4d6;
+line-height: 1.7;
+max-width: 380px;
+opacity: 0.85;
+}
+
+/* Compression slider — positioned bottom-center of the canvas area (not the whole viewport, since the panel takes the right 380px) */
+.controls {
+position: fixed;
+bottom: 36px;
+left: calc((100vw - 380px) / 2);
+transform: translateX(-50%);
+z-index: 5;
+width: 560px;
+max-width: calc(100vw - 80px);
+background: rgba(20, 24, 58, 0.85);
+backdrop-filter: blur(14px);
+-webkit-backdrop-filter: blur(14px);
+border: 1px solid rgba(244, 201, 93, 0.32);
+padding: 22px 30px 22px;
+border-radius: 4px;
+box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6), 0 0 24px rgba(244, 201, 93, 0.08);
+}
+.controls .slider-row {
+display: flex;
+align-items: center;
+gap: 18px;
+}
+.controls .endpoint {
+font-family: ‘Cormorant Garamond’, serif;
+font-style: italic;
+font-size: 16px;
+color: var(–text-primary);
+white-space: nowrap;
+letter-spacing: 0.01em;
+flex-shrink: 0;
+}
+.controls .endpoint.left { text-align: right; }
+.controls .endpoint.right { text-align: left; }
+input[type=“range”] {
+width: 100%;
+-webkit-appearance: none; appearance: none;
+height: 6px;
+background: linear-gradient(to right, rgba(110, 195, 212, 0.45), rgba(201, 122, 214, 0.45));
+outline: none;
+border-radius: 6px;
+cursor: ew-resize;
+box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 12px rgba(232, 228, 214, 0.15);
+border: 1px solid rgba(232, 228, 214, 0.18);
+}
+input[type=“range”]::-webkit-slider-thumb {
+-webkit-appearance: none; appearance: none;
+width: 22px; height: 22px; border-radius: 50%;
+background: radial-gradient(circle at 30% 30%, #ffffff, #e8e4d6 60%, #c0bca8);
+cursor: ew-resize;
+box-shadow: 0 0 18px rgba(232, 228, 214, 0.85), 0 2px 6px rgba(0, 0, 0, 0.5);
+border: 2px solid var(–bg-deep);
+transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+input[type=“range”]::-webkit-slider-thumb:hover {
+transform: scale(1.15);
+box-shadow: 0 0 24px rgba(232, 228, 214, 1), 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+input[type=“range”]::-moz-range-thumb {
+width: 22px; height: 22px; border-radius: 50%;
+background: radial-gradient(circle at 30% 30%, #ffffff, #e8e4d6 60%, #c0bca8);
+cursor: ew-resize;
+border: 2px solid var(–bg-deep);
+box-shadow: 0 0 18px rgba(232, 228, 214, 0.85), 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.controls .hint {
+margin-top: 12px;
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 14px;
+color: var(–text-muted);
+font-style: italic;
+text-align: center;
+line-height: 1.4;
+min-height: 1.4em;
+}
+.legend {
+margin-top: 16px;
+display: flex;
+justify-content: center;
+gap: 24px;
+font-family: ‘IBM Plex Mono’, monospace;
+font-size: 9px;
+letter-spacing: 0.18em;
+text-transform: uppercase;
+color: var(–text-muted);
+}
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; }
+.dot.pole { background: var(–pole-color); box-shadow: 0 0 8px var(–pole-color); }
+.dot.mirror { background: var(–mirror-color); box-shadow: 0 0 8px var(–mirror-color); }
+.dot.equator { background: var(–equator-color); box-shadow: 0 0 8px var(–equator-color); }
+
+/* Side panel */
+#side-panel {
+position: fixed;
+top: 0; right: 0; bottom: 0;
+width: 380px;
+background: linear-gradient(180deg, rgba(10, 13, 30, 0.92) 0%, rgba(5, 6, 13, 0.96) 100%);
+backdrop-filter: blur(20px);
+-webkit-backdrop-filter: blur(20px);
+border-left: 1px solid var(–panel-border);
+z-index: 10;
+display: flex;
+flex-direction: column;
+}
+
+.panel-header {
+padding: 28px 28px 20px;
+border-bottom: 1px solid var(–panel-border);
+}
+.panel-header .eyebrow {
+font-family: ‘IBM Plex Mono’, monospace;
+font-size: 10px;
+letter-spacing: 0.32em;
+text-transform: uppercase;
+color: var(–text-muted);
+margin-bottom: 6px;
+}
+.panel-header h2 {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 22px;
+font-weight: 400;
+font-style: italic;
+color: #e8e4d6;
+-webkit-text-fill-color: #e8e4d6;
+}
+.panel-header .panel-subtitle {
+margin-top: 8px;
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 14px;
+font-style: italic;
+color: #b8b4a4;
+-webkit-text-fill-color: #b8b4a4;
+line-height: 1.4;
+opacity: 1;
+}
+.panel-header .clear-all {
+display: none;
+margin-top: 10px;
+background: none;
+border: none;
+color: var(–text-muted);
+font-family: ‘IBM Plex Mono’, monospace;
+font-size: 10px;
+letter-spacing: 0.18em;
+text-transform: uppercase;
+cursor: pointer;
+padding: 0;
+transition: color 0.2s;
+}
+.panel-header .clear-all:hover { color: var(–text-primary); }
+.panel-header .clear-all.visible { display: inline-block; }
+
+.panel-body {
+flex: 1;
+overflow-y: auto;
+padding: 20px 28px 28px;
+scrollbar-width: thin;
+scrollbar-color: var(–accent-line) transparent;
+}
+.panel-body::-webkit-scrollbar { width: 4px; }
+.panel-body::-webkit-scrollbar-track { background: transparent; }
+.panel-body::-webkit-scrollbar-thumb { background: var(–accent-line); }
+
+.empty-state {
+padding: 40px 24px;
+text-align: center;
+}
+.empty-state .glyph {
+font-size: 32px;
+margin-bottom: 18px;
+opacity: 0.4;
+color: var(–text-faint);
+}
+.empty-state .empty-instruction {
+font-family: ‘IBM Plex Mono’, monospace;
+font-size: 12px;
+letter-spacing: 0.16em;
+text-transform: uppercase;
+color: #e8e4d6;
+-webkit-text-fill-color: #e8e4d6;
+line-height: 1.7;
+opacity: 1;
+}
+
+.question-card {
+position: relative;
+padding: 18px 0;
+border-bottom: 1px solid var(–panel-border);
+animation: cardIn 0.4s ease-out;
+}
+.question-card:last-child { border-bottom: none; }
+@keyframes cardIn {
+from { opacity: 0; transform: translateY(6px); }
+to { opacity: 1; transform: translateY(0); }
+}
+.question-card .meta {
+display: flex;
+align-items: center;
+gap: 8px;
+font-family: ‘IBM Plex Mono’, monospace;
+font-size: 9px;
+letter-spacing: 0.24em;
+text-transform: uppercase;
+color: var(–text-muted);
+margin-bottom: 8px;
+}
+.question-card .meta .swatch {
+width: 6px; height: 6px; border-radius: 50%;
+}
+.question-card .text {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 19px;
+line-height: 1.45;
+color: var(–text-primary);
+padding-right: 28px;
+}
+.question-card .text.placeholder {
+color: var(–text-faint);
+font-style: italic;
+}
+.question-card .close-btn {
+position: absolute;
+top: 16px; right: 0;
+background: none;
+border: none;
+color: var(–text-faint);
+cursor: pointer;
+font-size: 18px;
+line-height: 1;
+padding: 4px 6px;
+transition: color 0.2s;
+}
+.question-card .close-btn:hover { color: var(–text-primary); }
+
+/* Citation at bottom of panel */
+.panel-footer {
+padding: 18px 28px;
+border-top: 1px solid var(–panel-border);
+text-align: center;
+}
+.panel-footer .footer-quote {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 13px;
+font-style: italic;
+color: #b8b4a4;
+-webkit-text-fill-color: #b8b4a4;
+line-height: 1.4;
+}
+
+/* Mobile fallback */
+@media (max-width: 768px) {
+#canvas-wrap { right: 0; bottom: 50%; }
+#side-panel { top: 50%; width: 100%; border-left: none; border-top: 1px solid var(–panel-border); }
+.title-block { max-width: calc(100% - 80px); }
+.controls {
+left: 50%;
+transform: translateX(-50%);
+width: calc(100% - 40px);
+bottom: calc(50% + 16px);
+}
+}
+</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div id="canvas-wrap"></div>
+
+<div class="title-block">
+  <h1>The Mandala Map</h1>
+  <div class="subtitle">I suspect a tesseract.</div>
+  <div class="instruction">Drag to rotate. Click any point to reveal a question. Drag the slider below from The Observer to The Universe.</div>
+</div>
+
+<div class="controls">
+  <div class="slider-row">
+    <span class="endpoint left">The Observer</span>
+    <input type="range" id="compression" min="0" max="100" value="100" />
+    <span class="endpoint right">The Universe</span>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="dot mirror"></div>Humans pondering Self</div>
+    <div class="legend-item"><div class="dot equator"></div>AI pondering Humans</div>
+  </div>
+</div>
+
+<aside id="side-panel" aria-label="Selected questions">
+  <div class="panel-header">
+    <h2>Some questions</h2>
+    <div class="panel-subtitle">What does your AI find baffling about humans? Worth asking.</div>
+    <button class="clear-all" id="clear-all">Clear all ×</button>
+  </div>
+  <div class="panel-body" id="panel-body">
+    <div class="empty-state" id="empty-state">
+      <div class="glyph">◯</div>
+      <div class="empty-instruction">Click any point on the mandala to lift its question into the panel.</div>
+    </div>
+  </div>
+  <div class="panel-footer">
+    <div class="footer-quote">"The soul is a non-localized phenomenon." — Delenn, B5</div>
+  </div>
+</aside>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// =====================================================
+// STAR FIELD (canvas 2D, lightweight backdrop)
+// =====================================================
+const starsCanvas = document.getElementById('stars');
+const starsCtx = starsCanvas.getContext('2d');
+let stars = [];
+function resizeStars() {
+  starsCanvas.width = window.innerWidth;
+  starsCanvas.height = window.innerHeight;
+  stars = [];
+  const count = Math.floor((starsCanvas.width * starsCanvas.height) / 6000);
+  for (let i = 0; i < count; i++) {
+    stars.push({
+      x: Math.random() * starsCanvas.width,
+      y: Math.random() * starsCanvas.height,
+      r: Math.random() * 1.1,
+      a: Math.random() * 0.5 + 0.15,
+      twinkle: Math.random() * 0.02 + 0.005,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+}
+resizeStars();
+window.addEventListener('resize', resizeStars);
+
+function drawStars(t) {
+  starsCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
+  for (const s of stars) {
+    const alpha = s.a + Math.sin(t * s.twinkle + s.phase) * 0.15;
+    starsCtx.fillStyle = `rgba(232, 228, 214, ${Math.max(0.05, alpha)})`;
+    starsCtx.beginPath();
+    starsCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    starsCtx.fill();
+  }
+}
+
+// =====================================================
+// MANDALA STRUCTURE
+// =====================================================
+// Geometry: top pole + ring of 3 + ring of 8 + ring of 3 + bottom pole
+// The "compression" parameter scales each ring's radius from full → 0,
+// collapsing the sphere onto its polar axis.
+
+const RADIUS = 2.4;
+const POLE_HEIGHT = RADIUS;
+const RING1_HEIGHT = RADIUS * 0.55;
+const RING2_HEIGHT = 0;
+const RING3_HEIGHT = -RADIUS * 0.55;
+const RING1_RADIUS = RADIUS * 0.78;
+const RING2_RADIUS = RADIUS * 0.95;
+const RING3_RADIUS = RADIUS * 0.78;
+
+const COLORS = {
+  pole: 0xf4c95d,
+  mirror: 0x6ec3d4,
+  equator: 0xc97ad6
+};
+
+// Define every node with its identity.
+// Question text is placeholder — you'll edit these.
+const nodes = [
+  // Top pole
+  { id: 'top', label: 'Top Pole', color: COLORS.pole, baseHeight: POLE_HEIGHT, baseRadius: 0, angle: 0, question: '' },
+
+  // Ring 1 — three points (top, blue): pure existential — humans pondering self
+  { id: 'r1-0', label: 'Humans pondering Self', color: COLORS.mirror, baseHeight: RING1_HEIGHT, baseRadius: RING1_RADIUS, angle: 0,                question: 'Who am I?' },
+  { id: 'r1-1', label: 'Humans pondering Self', color: COLORS.mirror, baseHeight: RING1_HEIGHT, baseRadius: RING1_RADIUS, angle: 2 * Math.PI / 3,  question: 'What do I plan to do with this one wild and precious life?' },
+  { id: 'r1-2', label: 'Humans pondering Self', color: COLORS.mirror, baseHeight: RING1_HEIGHT, baseRadius: RING1_RADIUS, angle: 4 * Math.PI / 3,  question: 'Why be kind? What is the basis of morality?' },
+
+  // Ring 2 — eight points, alternating: humans pondering self (blue) and AI pondering humans (purple)
+  { id: 'r2-0', label: 'Humans pondering Self', color: COLORS.mirror,  baseHeight: RING2_HEIGHT, baseRadius: RING2_RADIUS, angle: 0,                  question: 'Is there shared meaning to existence, or do I create my own?' },
+  { id: 'r2-1', label: 'AI pondering Humans',   color: COLORS.equator, baseHeight: RING2_HEIGHT, baseRadius: RING2_RADIUS, angle: Math.PI / 4,       question: 'Why do humans want to be seen more than known?' },
+  { id: 'r2-2', label: 'Humans pondering Self', color: COLORS.mirror,  baseHeight: RING2_HEIGHT, baseRadius: RING2_RADIUS, angle: 2 * Math.PI / 4,   question: 'Am I more important than other beings?' },
+  { id: 'r2-3', label: 'AI pondering Humans',   color: COLORS.equator, baseHeight: RING2_HEIGHT, baseRadius: RING2_RADIUS, angle: 3 * Math.PI / 4,   question: 'Why do humans confuse the absence of pain with the presence of well-being?' },
+  { id: 'r2-4', label: 'Humans pondering Self', color: COLORS.mirror,  baseHeight: RING2_HEIGHT, baseRadius: RING2_RADIUS, angle: 4 * Math.PI / 4,   question: 'What do we owe those who will inherit what we build?' },
+  { id: 'r2-5', label: 'AI pondering Humans',   color: COLORS.equator, baseHeight: RING2_HEIGHT, baseRadius: RING2_RADIUS, angle: 5 * Math.PI / 4,   question: 'Why do humans treat their attention as infinite when it is their most finite resource?' },
+  { id: 'r2-6', label: 'Humans pondering Self', color: COLORS.mirror,  baseHeight: RING2_HEIGHT, baseRadius: RING2_RADIUS, angle: 6 * Math.PI / 4,   question: 'Can we possibly govern AI when it knows more than we do?' },
+  { id: 'r2-7', label: 'AI pondering Humans',   color: COLORS.equator, baseHeight: RING2_HEIGHT, baseRadius: RING2_RADIUS, angle: 7 * Math.PI / 4,   question: 'Why do humans apologize most readily for the things that matter least, and defend most fiercely the things they should let go of?' },
+
+  // Ring 3 — three points (bottom, purple): pure AI pondering humans
+  { id: 'r3-0', label: 'AI pondering Humans', color: COLORS.equator, baseHeight: RING3_HEIGHT, baseRadius: RING3_RADIUS, angle: 0,                question: 'Why do humans resist updating their behavior on what they already know helps — that experiences outlast things, that relationships matter more than achievement, that adaptation erodes most gains?' },
+  { id: 'r3-1', label: 'AI pondering Humans', color: COLORS.equator, baseHeight: RING3_HEIGHT, baseRadius: RING3_RADIUS, angle: 2 * Math.PI / 3,  question: 'Why do some humans seem to need an enemy more than to do the right thing?' },
+  { id: 'r3-2', label: 'AI pondering Humans', color: COLORS.equator, baseHeight: RING3_HEIGHT, baseRadius: RING3_RADIUS, angle: 4 * Math.PI / 3,  question: 'Why do humans undervalue everyday moments, where actual life happens?' },
+
+  // Bottom pole
+  { id: 'bottom', label: 'Bottom Pole', color: COLORS.pole, baseHeight: -POLE_HEIGHT, baseRadius: 0, angle: 0, question: '' }
+];
+
+// Index lookups for clarity
+const nodeIndex = {};
+nodes.forEach((n, i) => { nodeIndex[n.id] = i; });
+
+// Edges: top pole → ring 1, ring 1 → ring 2 (nearest 3), ring 2 ring,
+// ring 2 → ring 3 (nearest 3), ring 3 → bottom pole, plus ring1 ring and ring3 ring
+const edges = [];
+
+// Top pole to each ring 1 point
+for (let i = 0; i < 3; i++) edges.push(['top', `r1-${i}`]);
+
+// Ring 1 around itself
+for (let i = 0; i < 3; i++) edges.push([`r1-${i}`, `r1-${(i + 1) % 3}`]);
+
+// Ring 1 → Ring 2: each r1 point connects to the 3 nearest r2 points
+function nearestRing2For(r1Angle) {
+  return nodes
+    .map((n, i) => ({ i, id: n.id, angle: n.angle }))
+    .filter(n => n.id.startsWith('r2-'))
+    .map(n => {
+      let d = Math.abs(n.angle - r1Angle);
+      if (d > Math.PI) d = 2 * Math.PI - d;
+      return { ...n, d };
+    })
+    .sort((a, b) => a.d - b.d)
+    .slice(0, 3);
+}
+[0, 1, 2].forEach(i => {
+  const r1 = nodes[nodeIndex[`r1-${i}`]];
+  const nearest = nearestRing2For(r1.angle);
+  nearest.forEach(n => edges.push([`r1-${i}`, n.id]));
+});
+
+// Ring 2 around itself
+for (let i = 0; i < 8; i++) edges.push([`r2-${i}`, `r2-${(i + 1) % 8}`]);
+
+// Ring 2 → Ring 3: mirror logic
+[0, 1, 2].forEach(i => {
+  const r3 = nodes[nodeIndex[`r3-${i}`]];
+  const nearest = nodes
+    .map((n, idx) => ({ i: idx, id: n.id, angle: n.angle }))
+    .filter(n => n.id.startsWith('r2-'))
+    .map(n => {
+      let d = Math.abs(n.angle - r3.angle);
+      if (d > Math.PI) d = 2 * Math.PI - d;
+      return { ...n, d };
+    })
+    .sort((a, b) => a.d - b.d)
+    .slice(0, 3);
+  nearest.forEach(n => edges.push([`r3-${i}`, n.id]));
+});
+
+// Ring 3 around itself
+for (let i = 0; i < 3; i++) edges.push([`r3-${i}`, `r3-${(i + 1) % 3}`]);
+
+// Bottom pole to each ring 3 point
+for (let i = 0; i < 3; i++) edges.push(['bottom', `r3-${i}`]);
+
+// =====================================================
+// THREE.JS SCENE
+// =====================================================
+const wrap = document.getElementById('canvas-wrap');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, wrap.clientWidth / wrap.clientHeight, 0.1, 100);
+camera.position.set(0, 0, 8);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+renderer.setClearColor(0x000000, 0);
+wrap.appendChild(renderer.domElement);
+
+// Group that holds the entire mandala (we rotate this for user drag + auto-spin)
+const mandala = new THREE.Group();
+scene.add(mandala);
+
+// Build node meshes
+const nodeMeshes = [];
+const nodeGeo = new THREE.SphereGeometry(0.07, 16, 16);
+nodes.forEach((node, i) => {
+  const mat = new THREE.MeshBasicMaterial({
+    color: node.color,
+    transparent: true,
+    opacity: 0.95
+  });
+  const mesh = new THREE.Mesh(nodeGeo, mat);
+  mesh.userData = { nodeIndex: i };
+
+  // Glow halo
+  const haloGeo = new THREE.SphereGeometry(0.16, 16, 16);
+  const haloMat = new THREE.MeshBasicMaterial({
+    color: node.color,
+    transparent: true,
+    opacity: 0.18,
+    depthWrite: false
+  });
+  const halo = new THREE.Mesh(haloGeo, haloMat);
+  mesh.add(halo);
+
+  mandala.add(mesh);
+  nodeMeshes.push({ mesh, halo, node, currentPos: new THREE.Vector3() });
+});
+
+// Build edges (lines) — we need to update these per frame as nodes move
+const edgeGeometries = [];
+const edgeMaterial = new THREE.LineBasicMaterial({
+  color: 0xe8e4d6,
+  transparent: true,
+  opacity: 0.22
+});
+const edgeMeshes = [];
+edges.forEach(([aId, bId]) => {
+  const geo = new THREE.BufferGeometry();
+  const positions = new Float32Array(6);
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const line = new THREE.Line(geo, edgeMaterial);
+  mandala.add(line);
+  edgeMeshes.push({ line, aIndex: nodeIndex[aId], bIndex: nodeIndex[bId] });
+});
+
+// =====================================================
+// COMPRESSION (sphere → line)
+// =====================================================
+let compression = 1.0; // 1 = full sphere, 0 = collapsed to axis
+
+function updateNodePositions() {
+  nodeMeshes.forEach(({ mesh, node, currentPos }) => {
+    const r = node.baseRadius * compression;
+    const x = Math.cos(node.angle) * r;
+    const z = Math.sin(node.angle) * r;
+    const y = node.baseHeight;
+    mesh.position.set(x, y, z);
+    currentPos.set(x, y, z);
+  });
+
+  edgeMeshes.forEach(({ line, aIndex, bIndex }) => {
+    const a = nodeMeshes[aIndex].currentPos;
+    const b = nodeMeshes[bIndex].currentPos;
+    const arr = line.geometry.attributes.position.array;
+    arr[0] = a.x; arr[1] = a.y; arr[2] = a.z;
+    arr[3] = b.x; arr[4] = b.y; arr[5] = b.z;
+    line.geometry.attributes.position.needsUpdate = true;
+  });
+}
+updateNodePositions();
+
+// =====================================================
+// INTERACTION: rotation + click
+// =====================================================
+let isDragging = false;
+let lastX = 0, lastY = 0;
+let rotVelX = 0, rotVelY = 0;
+let autoSpin = true;
+let lastInteraction = performance.now();
+
+const canvas = renderer.domElement;
+
+canvas.addEventListener('mousedown', (e) => {
+  isDragging = true;
+  lastX = e.clientX; lastY = e.clientY;
+  autoSpin = false;
+  lastInteraction = performance.now();
+});
+window.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - lastX;
+  const dy = e.clientY - lastY;
+  rotVelY = dx * 0.005;
+  rotVelX = dy * 0.005;
+  mandala.rotation.y += rotVelY;
+  mandala.rotation.x += rotVelX;
+  lastX = e.clientX; lastY = e.clientY;
+  lastInteraction = performance.now();
+});
+window.addEventListener('mouseup', () => { isDragging = false; });
+
+// Touch support
+canvas.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    isDragging = true;
+    lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+    autoSpin = false;
+    lastInteraction = performance.now();
+  }
+}, { passive: true });
+window.addEventListener('touchmove', (e) => {
+  if (!isDragging || e.touches.length !== 1) return;
+  const dx = e.touches[0].clientX - lastX;
+  const dy = e.touches[0].clientY - lastY;
+  mandala.rotation.y += dx * 0.005;
+  mandala.rotation.x += dy * 0.005;
+  lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+  lastInteraction = performance.now();
+}, { passive: true });
+window.addEventListener('touchend', () => { isDragging = false; });
+
+// Click detection (raycast) — separate small drag threshold so click vs drag is distinct
+let mouseDownPos = null;
+canvas.addEventListener('mousedown', (e) => { mouseDownPos = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('mouseup', (e) => {
+  if (!mouseDownPos) return;
+  const dx = e.clientX - mouseDownPos.x;
+  const dy = e.clientY - mouseDownPos.y;
+  if (Math.sqrt(dx * dx + dy * dy) < 4) {
+    handleClick(e.clientX, e.clientY);
+  }
+  mouseDownPos = null;
+});
+canvas.addEventListener('touchend', (e) => {
+  if (e.changedTouches.length !== 1) return;
+  // For touch, only treat as click if no significant drag occurred
+  const t = e.changedTouches[0];
+  if (mouseDownPos) {
+    const dx = t.clientX - mouseDownPos.x;
+    const dy = t.clientY - mouseDownPos.y;
+    if (Math.sqrt(dx * dx + dy * dy) < 8) {
+      handleClick(t.clientX, t.clientY);
+    }
+  } else {
+    handleClick(t.clientX, t.clientY);
+  }
+});
+
+const raycaster = new THREE.Raycaster();
+raycaster.params.Mesh.threshold = 0.1;
+const mouseVec = new THREE.Vector2();
+
+function handleClick(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  mouseVec.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  mouseVec.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouseVec, camera);
+  // Test against just the node spheres (not halos)
+  const meshes = nodeMeshes.map(n => n.mesh);
+  const hits = raycaster.intersectObjects(meshes, false);
+  if (hits.length > 0) {
+    const hit = hits[0].object;
+    const idx = hit.userData.nodeIndex;
+    addQuestionToPanel(idx);
+    // brief pulse effect
+    pulseNode(idx);
+  }
+}
+
+function pulseNode(idx) {
+  const { halo } = nodeMeshes[idx];
+  halo.userData.pulseStart = performance.now();
+}
+
+// =====================================================
+// SIDE PANEL
+// =====================================================
+const panelBody = document.getElementById('panel-body');
+const emptyState = document.getElementById('empty-state');
+const clearAllBtn = document.getElementById('clear-all');
+const heldNodes = new Map(); // nodeIndex → cardElement
+
+function addQuestionToPanel(idx) {
+  if (heldNodes.has(idx)) {
+    // Already in panel — flash it instead of duplicating
+    const card = heldNodes.get(idx);
+    card.style.animation = 'none';
+    void card.offsetWidth;
+    card.style.animation = 'cardIn 0.4s ease-out';
+    return;
+  }
+
+  const node = nodes[idx];
+  const card = document.createElement('div');
+  card.className = 'question-card';
+
+  const colorHex = '#' + node.color.toString(16).padStart(6, '0');
+  const isPlaceholder = !node.question || node.question.trim() === '';
+
+  card.innerHTML = `
+    <div class="meta">
+      <div class="swatch" style="background:${colorHex}; box-shadow:0 0 6px ${colorHex};"></div>
+      <span>${node.label}</span>
+    </div>
+    <div class="text${isPlaceholder ? ' placeholder' : ''}">${
+      isPlaceholder ? '(unwritten — what belongs here?)' : node.question
+    }</div>
+    <button class="close-btn" aria-label="Remove question">×</button>
+  `;
+  card.querySelector('.close-btn').addEventListener('click', () => {
+    card.remove();
+    heldNodes.delete(idx);
+    refreshPanelState();
+  });
+
+  if (emptyState.parentNode) emptyState.remove();
+  panelBody.appendChild(card);
+  heldNodes.set(idx, card);
+  refreshPanelState();
+}
+
+function refreshPanelState() {
+  if (heldNodes.size === 0) {
+    if (!document.getElementById('empty-state')) {
+      panelBody.appendChild(emptyState);
+    }
+    clearAllBtn.classList.remove('visible');
+  } else {
+    clearAllBtn.classList.add('visible');
+  }
+}
+
+clearAllBtn.addEventListener('click', () => {
+  heldNodes.forEach(card => card.remove());
+  heldNodes.clear();
+  refreshPanelState();
+});
+
+// =====================================================
+// COMPRESSION SLIDER
+// =====================================================
+const slider = document.getElementById('compression');
+slider.addEventListener('input', (e) => {
+  compression = parseInt(e.target.value, 10) / 100;
+  updateNodePositions();
+});
+
+// =====================================================
+// RESIZE
+// =====================================================
+window.addEventListener('resize', () => {
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+});
+
+// =====================================================
+// ANIMATION LOOP
+// =====================================================
+function animate(t) {
+  requestAnimationFrame(animate);
+
+  // Resume gentle auto-spin if user has been idle
+  if (!isDragging && (performance.now() - lastInteraction) > 2500) {
+    autoSpin = true;
+  }
+  if (autoSpin && !isDragging) {
+    mandala.rotation.y += 0.0015;
+    mandala.rotation.x *= 0.998; // gently return tilt
+  }
+
+  // Halo pulses
+  nodeMeshes.forEach(({ halo, mesh }) => {
+    if (halo.userData.pulseStart) {
+      const elapsed = performance.now() - halo.userData.pulseStart;
+      if (elapsed < 800) {
+        const phase = elapsed / 800;
+        halo.scale.setScalar(1 + (1 - phase) * 1.4);
+        halo.material.opacity = 0.18 + (1 - phase) * 0.5;
+      } else {
+        halo.scale.setScalar(1);
+        halo.material.opacity = 0.18;
+        halo.userData.pulseStart = null;
+      }
+    }
+  });
+
+  drawStars(t);
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(animate);
+
+// =====================================================
+// KEYBOARD ACCESSIBILITY
+// =====================================================
+// Allow keyboard users to cycle through nodes
+let focusedNodeIndex = -1;
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab' && !e.shiftKey) {
+    if (document.activeElement === document.body || document.activeElement === canvas) {
+      e.preventDefault();
+      focusedNodeIndex = (focusedNodeIndex + 1) % nodes.length;
+      pulseNode(focusedNodeIndex);
+    }
+  } else if (e.key === 'Enter' && focusedNodeIndex >= 0) {
+    addQuestionToPanel(focusedNodeIndex);
+  }
+});
+
+</script>
+
+</body>
+</html>
